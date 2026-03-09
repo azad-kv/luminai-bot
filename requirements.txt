@@ -1,0 +1,7 @@
+flask
+pypdf
+python-dotenv
+google-genai
+openai
+faiss-cpu
+numpy

@@ -1,0 +1,463 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>RAG Chatbot</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
+        "Open Sans", "Helvetica Neue", sans-serif;
+      margin: 0;
+      background: #343541;
+      color: #e6e6e6;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      background: #343541;
+      padding: 10px 20px;
+      border-bottom: 1px solid #444654;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+    .tabs {
+      background: #343541;
+      padding: 5px 20px;
+      border-bottom: 1px solid #444654;
+      flex-shrink: 0;
+    }
+    .tabs button {
+      background: transparent;
+      border: none;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      color: #c9c9c9;
+    }
+    .tabs button.active {
+      border-bottom: 2px solid #10a37f;
+      color: #fff;
+    }
+    .content {
+      padding: 0;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      background: #343541;
+      color: #e6e6e6;
+    }
+    .tab {
+      display: none;
+      height: 100%;
+    }
+    .tab.active {
+      display: flex;
+      flex-direction: column;
+    }
+    #conversation {
+      flex: 1 1 auto;
+      padding: 20px;
+      overflow-y: auto;
+      background: #444654;
+      box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+    }
+    .message {
+      margin: 8px 0;
+      display: flex;
+    }
+    .message.user {
+      justify-content: flex-end;
+    }
+    .message.bot {
+      justify-content: flex-start;
+    }
+    .message .bubble {
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 16px;
+      max-width: 70%;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.95rem;
+    }
+    .message.user .bubble {
+      background: #10a37f;
+      color: #fff;
+    }
+    .message.bot .bubble {
+      background: #565656;
+      color: #e6e6e6;
+    }
+    #input-area {
+      padding: 10px 20px;
+      border-top: 1px solid #444654;
+      display: flex;
+      gap: 10px;
+      flex-shrink: 0;
+      background: #343541;
+    }
+    #query {
+      flex: 1 1 auto;
+      padding: 10px;
+      font-size: 1rem;
+      border: 1px solid #555;
+      border-radius: 8px;
+      background: #565656;
+      color: #e6e6e6;
+    }
+    button {
+      padding: 10px 16px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      background: #10a37f;
+      color: #fff;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    button:hover {
+      background: #0e8c6e;
+    }
+    #docList {
+      list-style: none;
+      padding: 20px;
+      margin: 0;
+    }
+    #docList li {
+      background: #444654;
+      padding: 12px 16px;
+      margin: 6px 20px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #e6e6e6;
+    }
+    #upload #drop-area {
+      border: 2px dashed #555;
+      border-radius: 8px;
+      padding: 40px;
+      text-align: center;
+      color: #c9c9c9;
+      margin: 20px;
+      cursor: pointer;
+      background: #3b3b4d;
+    }
+    #upload #drop-area.hover {
+      background: #4a4a60;
+    }
+    #upload input[type=file] {
+      display: none;
+    }
+    #uploadBtn, #ingestBtn {
+      font-size: 0.85rem;
+      padding: 8px 12px;
+    }
+    #ingestBtn {
+      background: #ff8c00;
+    }
+    #ingestBtn:hover {
+      background: #e07a00;
+    }
+    /* scrollbar */
+    #conversation::-webkit-scrollbar {
+      width: 8px;
+    }
+    #conversation::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,0.4);
+      border-radius: 4px;
+    }
+    #conversation::-webkit-scrollbar-track {
+      background: #444654;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>RAG Chatbot</h1>
+    </header>
+    <div class="tabs">
+      <button id="tab-chat" onclick="showTab('chat')" class="active">Chat</button>
+      <button id="tab-manage" onclick="showTab('manage')">Documents</button>
+      <button id="tab-upload" onclick="showTab('upload')">Upload</button>
+    </div>
+
+    <div id="chat" class="tab active">
+      <div class="content">
+        <div id="conversation"></div>
+        <div id="input-area">
+          <input type="text" id="query" placeholder="Ask a question" />
+          <button onclick="sendQuery()">Send</button>
+        </div>
+      </div>
+    </div>
+    <div id="manage" class="tab">
+      <div class="content">
+        <button onclick="refreshDocs()">Refresh list</button>
+        <ul id="docList"></ul>
+      </div>
+    </div>
+
+    <div id="upload" class="tab">
+      <div class="content">
+        <div id="drop-area">
+          <p>Drag & drop a file here or click to select</p>
+          <input type="file" id="fileInput" style="display:none;" />
+        </div>
+        <div id="selected-name" style="margin:6px 20px; font-size:0.9rem;color:#c9c9c9;"></div>
+        <div style="margin:20px 0; display:flex; gap:10px;">
+          <button id="uploadBtn" onclick="uploadFile()">Upload</button>
+          <button id="ingestBtn" onclick="ingest()">Chunk and Ingest</button>
+        </div>
+        <div id="uploadedFiles" style="margin:10px 20px; font-size:0.9rem; color:#e6e6e6;"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function showTab(name) {
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.getElementById(name).classList.add('active');
+    // update button styles
+    document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+    let btn = document.getElementById('tab-' + name);
+    if (btn) btn.classList.add('active');
+}
+
+function sendQuery() {
+    let input = document.getElementById('query');
+    let btn = input.nextElementSibling;
+    let q = input.value.trim();
+    if(!q) return;
+    appendMessage('user', q);
+    input.value = '';
+    // disable until response
+    input.disabled = true;
+    btn.disabled = true;
+    appendMessage('bot', '...');
+    fetch('/api/chat', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({query: q})
+    })
+    .then(r=>r.json())
+    .then(data=>{
+        // remove the loading bubble
+        let conv = document.getElementById('conversation');
+        let last = conv.lastElementChild;
+        if (last && last.classList.contains('bot') && last.textContent.trim() === '...') {
+            conv.removeChild(last);
+        }
+        appendMessage('bot', data.answer || data.error);
+    })
+    .finally(()=>{
+        input.disabled = false;
+        btn.disabled = false;
+        input.focus();
+    });
+}
+
+function appendMessage(who, text) {
+    let div = document.createElement('div');
+    div.className = 'message ' + who;
+    let bubble = document.createElement('span');
+    bubble.className = 'bubble';
+    // preserve newlines
+    bubble.innerHTML = text.replace(/\n/g, '<br>');
+    div.appendChild(bubble);
+    document.getElementById('conversation').appendChild(div);
+    // scroll to bottom
+    let conv = document.getElementById('conversation');
+    conv.scrollTop = conv.scrollHeight;
+}
+
+// send query on enter key
+let queryInput = document.getElementById('query');
+if (queryInput) {
+    queryInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendQuery();
+        }
+    });
+}
+
+function refreshUpload() {
+    fetch('/api/documents/unchunked')
+      .then(r=>r.json())
+      .then(data=>{
+        setControlsEnabled(true);
+        let div = document.getElementById('uploadedFiles');
+        if (!div) return;
+        if (data.documents.length === 0) {
+            div.textContent = 'No pending documents';
+        } else {
+            // show list with delete links
+            div.innerHTML = '';
+            data.documents.forEach(name=>{
+                let item = document.createElement('div');
+                item.style.display = 'flex';
+                item.style.justifyContent = 'space-between';
+                item.style.marginBottom = '4px';
+                let span = document.createElement('span');
+                span.textContent = name;
+                item.appendChild(span);
+                let del = document.createElement('button');
+                del.textContent = 'Delete';
+                del.style.background = '#dc3545';
+                del.style.fontSize = '0.85rem';
+                del.onclick = ()=>{
+                    fetch('/api/documents/'+encodeURIComponent(name),{method:'DELETE'})
+                      .then(r=>r.json()).then(refreshUpload);
+                };
+                item.appendChild(del);
+                div.appendChild(item);
+            });
+        }
+    })
+    .catch(err=>{
+        console.error('upload check failed',err);
+        setControlsEnabled(false);
+        let div = document.getElementById('uploadedFiles');
+        if (div) div.textContent = 'Server unreachable';
+    });
+}
+
+// show selected file name when chosen
+let fileInput = document.getElementById('fileInput');
+if (fileInput) {
+    fileInput.addEventListener('change', () => {
+        let nameDiv = document.getElementById('selected-name');
+        if (fileInput.files.length) {
+            nameDiv.textContent = 'Selected: ' + fileInput.files[0].name;
+        } else {
+            nameDiv.textContent = '';
+        }
+    });
+}
+
+// drag and drop support
+let dropArea = document.getElementById('drop-area');
+if (dropArea) {
+    ;['dragenter', 'dragover'].forEach(evt => {
+        dropArea.addEventListener(evt, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.add('hover');
+        });
+    });
+    ;['dragleave', 'drop'].forEach(evt => {
+        dropArea.addEventListener(evt, e => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropArea.classList.remove('hover');
+        });
+    });
+    dropArea.addEventListener('drop', e => {
+        if (e.dataTransfer.files && e.dataTransfer.files.length) {
+            document.getElementById('fileInput').files = e.dataTransfer.files;
+            // update name display
+            let nameDiv = document.getElementById('selected-name');
+            nameDiv.textContent = 'Selected: ' + e.dataTransfer.files[0].name;
+            uploadFile();
+        }
+    });
+    dropArea.addEventListener('click', () => {
+        document.getElementById('fileInput').click();
+    });
+}
+
+window.onload = function() {
+    refreshDocs();
+    refreshUpload();
+};
+
+function setControlsEnabled(enabled) {
+    document.getElementById('uploadBtn').disabled = !enabled;
+    document.getElementById('ingestBtn').disabled = !enabled;
+    document.querySelector('.tabs button#tab-manage').disabled = !enabled;
+    document.querySelector('.tabs button#tab-upload').disabled = !enabled;
+}
+
+function refreshDocs() {
+    fetch('/api/documents')
+      .then(r=>r.json())
+      .then(data=>{
+        setControlsEnabled(true);
+        let ul = document.getElementById('docList');
+        ul.innerHTML = '';
+        if (data.documents.length === 0) {
+            let li = document.createElement('li');
+            li.textContent = 'No documents uploaded.';
+            ul.appendChild(li);
+        } else {
+            data.documents.forEach(name=>{
+                let li = document.createElement('li');
+                let nameSpan = document.createElement('span');
+                nameSpan.textContent = name;
+                li.appendChild(nameSpan);
+                let actions = document.createElement('span');
+                actions.style.gap = '6px';
+                actions.style.display = 'inline-flex';
+                let dl = document.createElement('a');
+                dl.href = '/documents/'+encodeURIComponent(name);
+                dl.textContent = 'Download';
+                dl.style.textDecoration = 'none';
+                dl.style.color = '#007bff';
+                actions.appendChild(dl);
+                let del = document.createElement('button');
+                del.textContent = 'Delete';
+                del.style.background = '#dc3545';
+                del.style.marginLeft = '4px';
+                del.onclick = ()=>{fetch('/api/documents/'+encodeURIComponent(name),{method:'DELETE'}).then(refreshDocs);};
+                actions.appendChild(del);
+                li.appendChild(actions);
+                ul.appendChild(li);
+            });
+        }
+    })
+    .catch(err=>{
+        console.error('failed to fetch documents',err);
+        setControlsEnabled(false);
+        let ul = document.getElementById('docList');
+        if (ul) {
+            ul.innerHTML = '<li style="color:#f00; margin:20px;">Server unreachable</li>';
+        }
+    });
+}
+
+function uploadFile() {
+    let fileInput = document.getElementById('fileInput');
+    if(fileInput.files.length===0) { alert('choose file'); return;}
+    let form = new FormData();
+    form.append('file', fileInput.files[0]);
+    fetch('/api/documents/upload',{method:'POST', body:form})
+      .then(r=>r.json()).then(data=>{
+          alert(data.message||data.error);
+          refreshDocs();
+          refreshUpload();
+      });
+}
+
+function ingest(){
+    fetch('/api/documents/ingest',{method:'POST'})
+      .then(r=>r.json()).then(data=>{ 
+          alert(data.message||data.error);
+          refreshDocs();
+          refreshUpload();
+      });
+}
+</script>
+
+</body>
+</html>
