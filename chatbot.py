@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Any, Dict, List, Tuple
 
 import faiss
@@ -39,6 +40,18 @@ FOLLOWUP_EXPANDED_SEARCH_MULTIPLIER = int(
 ENABLE_QUERY_ROUTING_DEBUG = (
     os.getenv("ENABLE_QUERY_ROUTING_DEBUG", "false").strip().lower() == "true"
 )
+
+TAG_REGEX = re.compile(r"#([A-Za-z0-9_\-]+)")
+
+
+def extract_tag_from_query(query: str) -> tuple[str, str]:
+    """Return (tag, cleaned_query). Tag is empty if none found."""
+    match = TAG_REGEX.search(query)
+    if not match:
+        return "", query
+    tag = match.group(1)
+    cleaned = TAG_REGEX.sub("", query).strip()
+    return tag, cleaned
 
 
 def load_chunks() -> List[Dict[str, Any]]:
@@ -113,7 +126,9 @@ def retrieve_document_chunks(
     embedder: Embedder,
     query: str,
     top_k: int,
+    tag: str = "",
 ) -> List[Tuple[float, Dict[str, Any]]]:
+    """Retrieve document chunks from the FAISS index and optionally filter by tag."""
     qv = embedder.embed_query(query)
     if index.d != qv.shape[1]:
         raise ValueError(
@@ -122,7 +137,13 @@ def retrieve_document_chunks(
             "Check DOC_EMBEDDING_PROVIDER and rebuild the doc index if needed."
         )
 
-    scores, idxs = index.search(qv, top_k)
+    tag = (tag or "").strip()
+    search_k = top_k
+    # When filtering by tag, retrieve more results from FAISS to allow filtering
+    if tag:
+        search_k = min(len(chunks), max(top_k * 5, top_k))
+
+    scores, idxs = index.search(qv, search_k)
     hits: List[Tuple[float, Dict[str, Any]]] = []
 
     for i in range(len(idxs[0])):
@@ -130,7 +151,12 @@ def retrieve_document_chunks(
         if idx == -1:
             continue
         if 0 <= idx < len(chunks):
-            hits.append((float(scores[0][i]), chunks[idx]))
+            chunk = chunks[idx]
+            if tag and chunk.get("tag", "") != tag:
+                continue
+            hits.append((float(scores[0][i]), chunk))
+            if len(hits) >= top_k:
+                break
 
     return hits
 
@@ -404,6 +430,24 @@ def set_session_active_sources(session_id: str, sources: List[str]) -> None:
     save_active_source_state(state)
 
 
+def get_session_tag(session_id: str) -> str:
+    state = load_active_source_state()
+    session_state = state.get(session_id, {})
+    tag = session_state.get("current_tag", "")
+    return str(tag).strip() if isinstance(tag, str) else ""
+
+
+def set_session_tag(session_id: str, tag: str) -> None:
+    state = load_active_source_state()
+    if session_id not in state or not isinstance(state[session_id], dict):
+        state[session_id] = {}
+    if tag:
+        state[session_id]["current_tag"] = tag.strip()
+    else:
+        state[session_id].pop("current_tag", None)
+    save_active_source_state(state)
+
+
 def is_follow_up_query(query: str, recent_messages: List[Tuple[int, str, str]]) -> bool:
     q = query.strip().lower()
     if not q:
@@ -490,9 +534,12 @@ def retrieve_document_chunks_followup_aware(
     query: str,
     top_k: int,
     allowed_sources: List[str],
+    tag: str = "",
 ) -> Tuple[List[Tuple[float, Dict[str, Any]]], bool]:
     expanded_k = min(max(top_k * FOLLOWUP_EXPANDED_SEARCH_MULTIPLIER, top_k), len(chunks))
-    global_hits = retrieve_document_chunks(index, chunks, embedder, query, expanded_k)
+    global_hits = retrieve_document_chunks(
+        index, chunks, embedder, query, expanded_k, tag=tag
+    )
     scoped_hits = filter_hits_by_sources(global_hits, allowed_sources, top_k)
 
     if scoped_hits:

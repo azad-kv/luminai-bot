@@ -1,12 +1,13 @@
 {
   "default": {
     "active_sources": [
-      "Rothman - Rothman Pre Cert Auth - Availity Portal.pdf",
-      "Rothman - Rothman Pre Cert Auth - Availity Portal.pdf",
-      "Rothman - Rothman Pre Cert Auth - Availity Portal.pdf",
-      "Rothman - Rothman Pre Cert Auth - Availity Portal.pdf",
-      "Rothman - Rothman Pre Cert Auth - Availity Portal.pdf",
-      "Rothman - Rothman Pre Cert Auth - Availity Portal.pdf"
-    ]
+      "ModernHealth- COC.pdf",
+      "ModernHealth- COC.pdf",
+      "ModernHealth- COC.pdf",
+      "ModernHealth- COC.pdf",
+      "ModernHealth- COC.pdf",
+      "ModernHealth- COC.pdf"
+    ],
+    "current_tag": "Modern Health COC"
   }
 }

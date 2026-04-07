@@ -34,7 +34,16 @@
       padding: 5px 20px;
       border-bottom: 1px solid #444654;
       flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
+
+    .tabs-left {
+      display: flex;
+      gap: 0;
+    }
+
     .tabs button {
       background: transparent;
       border: none;
@@ -43,9 +52,25 @@
       font-size: 0.95rem;
       color: #c9c9c9;
     }
+
     .tabs button.active {
       border-bottom: 2px solid #10a37f;
       color: #fff;
+    }
+
+    .close-workflow-btn {
+      background: #dc3545;
+      color: #fff;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .close-workflow-btn:hover {
+      background: #c82333;
     }
     .content {
       padding: 0;
@@ -168,6 +193,28 @@
     #ingestBtn:hover {
       background: #e07a00;
     }
+
+    .tag-suggestions {
+      position: absolute;
+      top: 46px;
+      left: 0;
+      right: 0;
+      background: #2b2b3a;
+      border: 1px solid #555;
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 10;
+      color: #e6e6e6;
+    }
+    .tag-suggestion-item {
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .tag-suggestion-item:hover {
+      background: #3b3b50;
+    }
+
     /* scrollbar */
     #conversation::-webkit-scrollbar {
       width: 8px;
@@ -179,52 +226,474 @@
     #conversation::-webkit-scrollbar-track {
       background: #444654;
     }
+
+    /* Workflow Selector Styles */
+    #workflow-selector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 40px 20px;
+      background: linear-gradient(135deg, #343541 0%, #444654 100%);
+    }
+
+    .workflow-selector-hidden {
+      display: none !important;
+    }
+
+    .workflow-selector-content {
+      background: #2d2d2d;
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 500px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+
+    .workflow-selector-content h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #10a37f;
+      font-size: 1.8rem;
+    }
+
+    .workflow-selector-content p {
+      color: #c9c9c9;
+      margin-bottom: 30px;
+      font-size: 0.95rem;
+    }
+
+    #workflow-dropdown {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      font-size: 1rem;
+      border: 1px solid #555;
+      border-radius: 8px;
+      background: #565656;
+      color: #e6e6e6;
+      cursor: pointer;
+    }
+
+    #workflow-dropdown option {
+      background: #2d2d2d;
+      color: #e6e6e6;
+    }
+
+    .workflow-selector-content button {
+      width: 100%;
+      padding: 12px;
+      font-size: 1rem;
+      background: #10a37f;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .workflow-selector-content button:hover {
+      background: #0e8c6e;
+    }
+
+    .workflow-selector-content button:disabled {
+      background: #666;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    #loading-indicator {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .spinner {
+      border: 3px solid #444654;
+      border-top: 3px solid #10a37f;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: #c9c9c9;
+      font-size: 0.9rem;
+      margin-top: 10px;
+    }
+
+    .workflow-error {
+      color: #ff6b6b;
+      padding: 10px;
+      background: rgba(255, 107, 107, 0.1);
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 0.9rem;
+    }
+
+    .workflow-info {
+      color: #10a37f;
+      padding: 10px;
+      background: rgba(16, 163, 127, 0.1);
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 0.9rem;
+    }
+
+    .tabs.hidden {
+      display: none;
+    }
+
+    #main-content {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      height: 100%;
+    }
+
+    #main-content.hidden {
+      display: none;
+    }
+
+    /* Markdown styling */
+    .bubble h1, .bubble h2, .bubble h3, .bubble h4, .bubble h5, .bubble h6 {
+      margin: 10px 0 5px 0;
+      font-weight: 600;
+    }
+    .bubble h1 { font-size: 1.5em; }
+    .bubble h2 { font-size: 1.3em; }
+    .bubble h3 { font-size: 1.1em; }
+    .bubble p {
+      margin: 5px 0;
+    }
+    .bubble ul, .bubble ol {
+      margin: 5px 0;
+      padding-left: 20px;
+    }
+    .bubble li {
+      margin: 3px 0;
+    }
+    .bubble code {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    .bubble pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+      margin: 5px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+    }
+    .bubble pre code {
+      background: none;
+      padding: 0;
+      border-radius: 0;
+    }
+    .bubble blockquote {
+      border-left: 3px solid rgba(255, 255, 255, 0.3);
+      margin: 5px 0;
+      padding-left: 10px;
+      color: rgba(230, 230, 230, 0.8);
+    }
+    .bubble strong {
+      font-weight: 600;
+    }
+    .bubble em {
+      font-style: italic;
+    }
+    .bubble a {
+      color: #10a37f;
+      text-decoration: underline;
+    }
+    .bubble table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 5px 0;
+      font-size: 0.9em;
+    }
+    .bubble table th, .bubble table td {
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 5px;
+      text-align: left;
+    }
+    .bubble table th {
+      background: rgba(0, 0, 0, 0.2);
+      font-weight: 600;
+    }
+    .bubble hr {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      margin: 10px 0;
+    }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>RAG Chatbot</h1>
+      <h1 id="page-title">RAG Chatbot</h1>
     </header>
-    <div class="tabs">
-      <button id="tab-chat" onclick="showTab('chat')" class="active">Chat</button>
-      <button id="tab-manage" onclick="showTab('manage')">Documents</button>
-      <button id="tab-upload" onclick="showTab('upload')">Upload</button>
-    </div>
 
-    <div id="chat" class="tab active">
-      <div class="content">
-        <div id="conversation"></div>
-        <div id="input-area">
-          <input type="text" id="query" placeholder="Ask a question" />
-          <button onclick="sendQuery()">Send</button>
+    <!-- Workflow Selector Screen (appears first) -->
+    <div id="workflow-selector" class="workflow-selector-hidden">
+      <div class="workflow-selector-content">
+        <h2>Select a Workflow</h2>
+        <p>Choose a workflow to get started with the chatbot</p>
+        
+        <div id="workflow-error" class="workflow-error" style="display:none;"></div>
+        <div id="workflow-info" class="workflow-info" style="display:none;"></div>
+
+        <select id="workflow-dropdown">
+          <option value="">-- Loading workflows --</option>
+        </select>
+
+        <button id="workflow-select-btn" onclick="selectWorkflow()" disabled>
+          Select & Ingest
+        </button>
+
+        <div id="loading-indicator">
+          <div class="spinner"></div>
+          <div class="loading-text" id="loading-text">Ingesting documents...</div>
         </div>
       </div>
     </div>
-    <div id="manage" class="tab">
-      <div class="content">
-        <button onclick="refreshDocs()">Refresh list</button>
-        <ul id="docList"></ul>
-      </div>
-    </div>
 
-    <div id="upload" class="tab">
-      <div class="content">
-        <div id="drop-area">
-          <p>Drag & drop a file here or click to select</p>
-          <input type="file" id="fileInput" style="display:none;" />
+    <!-- Main Interface (hidden until workflow selected) -->
+    <div id="main-content" class="hidden">
+      <div class="tabs">
+        <div class="tabs-left">
+          <button id="tab-chat" onclick="showTab('chat')" class="active">Chat</button>
+          <button id="tab-manage" onclick="showTab('manage')">Documents</button>
+          <button id="tab-upload" onclick="showTab('upload')">Upload</button>
         </div>
-        <div id="selected-name" style="margin:6px 20px; font-size:0.9rem;color:#c9c9c9;"></div>
-        <div style="margin:20px 0; display:flex; gap:10px;">
-          <button id="uploadBtn" onclick="uploadFile()">Upload</button>
-          <button id="ingestBtn" onclick="ingest()">Chunk and Ingest</button>
+        <button class="close-workflow-btn" onclick="backToWorkflowSelector()">← Change Workflow</button>
+      </div>
+
+      <div id="chat" class="tab active">
+        <div class="content">
+          <div id="conversation"></div>
+          <div id="input-area">
+            <div style="position:relative; flex:1;">
+              <input type="text" id="query" placeholder="Ask a question" />
+              <div id="queryTagSuggestions" class="tag-suggestions" style="display:none;"></div>
+            </div>
+            <button onclick="sendQuery()">Send</button>
+          </div>
         </div>
-        <div id="uploadedFiles" style="margin:10px 20px; font-size:0.9rem; color:#e6e6e6;"></div>
+      </div>
+      <div id="manage" class="tab">
+        <div class="content">
+          <button onclick="refreshDocs()">Refresh list</button>
+          <ul id="docList"></ul>
+        </div>
+      </div>
+
+      <div id="upload" class="tab">
+        <div class="content">
+          <div id="drop-area">
+            <p>Drag & drop a file here or click to select</p>
+            <input type="file" id="fileInput" style="display:none;" />
+          </div>
+          <div id="selected-name" style="margin:6px 20px; font-size:0.9rem;color:#c9c9c9;"></div>
+          <div style="margin:20px 0; display:flex; gap:10px; align-items:flex-start;">
+            <div style="position:relative; flex:1;">
+              <input id="tagInput" type="text" placeholder="Tag (e.g. sales)" style="width:100%; padding:10px; border-radius:8px; border:1px solid #555; background:#565656; color:#e6e6e6;" />
+              <div id="tagSuggestions" class="tag-suggestions" style="display:none;"></div>
+            </div>
+            <button id="uploadBtn" onclick="uploadFile()">Upload</button>
+            <button id="ingestBtn" onclick="ingest()">Chunk and Ingest</button>
+          </div>
+          <div id="uploadedFiles" style="margin:10px 20px; font-size:0.9rem; color:#e6e6e6;"></div>
+        </div>
       </div>
     </div>
   </div>
 
 <script>
+/* ============================================================================
+   Workflow Selector Functions
+   ============================================================================ */
+
+async function loadWorkflows() {
+    try {
+        const response = await fetch('/api/workflows');
+        const data = await response.json();
+        
+        if (!Array.isArray(data.workflows)) {
+            throw new Error('Invalid workflows response');
+        }
+
+        const dropdown = document.getElementById('workflow-dropdown');
+        dropdown.innerHTML = '<option value="">-- Select a workflow --</option>';
+        
+        data.workflows.forEach(workflow => {
+            const option = document.createElement('option');
+            option.value = workflow;
+            option.textContent = workflow;
+            dropdown.appendChild(option);
+        });
+
+        // Enable button if workflows exist
+        const btn = document.getElementById('workflow-select-btn');
+        if (data.workflows.length > 0) {
+            btn.disabled = false;
+        }
+
+        console.log(`Loaded ${data.workflows.length} workflows`);
+    } catch (error) {
+        console.error('Failed to load workflows:', error);
+        showWorkflowError('Failed to load workflows. Please refresh the page.');
+    }
+}
+
+function showWorkflowError(message) {
+    const errorDiv = document.getElementById('workflow-error');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+}
+
+function hideWorkflowError() {
+    const errorDiv = document.getElementById('workflow-error');
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+    }
+}
+
+function showWorkflowInfo(message) {
+    const infoDiv = document.getElementById('workflow-info');
+    if (infoDiv) {
+        infoDiv.textContent = message;
+        infoDiv.style.display = 'block';
+    }
+}
+
+function hideWorkflowInfo() {
+    const infoDiv = document.getElementById('workflow-info');
+    if (infoDiv) {
+        infoDiv.style.display = 'none';
+    }
+}
+
+function backToWorkflowSelector() {
+    // Hide main content and show workflow selector
+    const selectorEl = document.getElementById('workflow-selector');
+    const mainEl = document.getElementById('main-content');
+    
+    if (selectorEl) selectorEl.classList.remove('workflow-selector-hidden');
+    if (mainEl) mainEl.classList.add('hidden');
+    
+    // Reset page title
+    const pageTitle = document.getElementById('page-title');
+    if (pageTitle) pageTitle.textContent = 'RAG Chatbot';
+    
+    // Clear conversation
+    const conversation = document.getElementById('conversation');
+    if (conversation) conversation.innerHTML = '';
+    
+    // Clear input
+    const queryInput = document.getElementById('query');
+    if (queryInput) queryInput.value = '';
+    
+    // Reset to chat tab
+    showTab('chat');
+    
+    // Clear workflow messages
+    hideWorkflowError();
+    hideWorkflowInfo();
+    
+    console.log('Returned to workflow selector');
+}
+
+async function selectWorkflow() {
+    const dropdown = document.getElementById('workflow-dropdown');
+    const workflow = dropdown.value;
+
+    if (!workflow) {
+        showWorkflowError('Please select a workflow');
+        return;
+    }
+
+    // Show loading indicator
+    const btn = document.getElementById('workflow-select-btn');
+    const loading = document.getElementById('loading-indicator');
+    const dropdown_el = document.getElementById('workflow-dropdown');
+    
+    hideWorkflowError();
+    hideWorkflowInfo();
+    
+    loading.style.display = 'block';
+    btn.disabled = true;
+    dropdown_el.disabled = true;
+
+    try {
+        const response = await fetch('/api/workflows/select', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ workflow })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            showWorkflowError(data.error || 'Failed to ingest workflow');
+            loading.style.display = 'none';
+            btn.disabled = false;
+            dropdown_el.disabled = false;
+            return;
+        }
+
+        // Success - show the ingestion was complete
+        showWorkflowInfo(`✓ Ingested ${data.chunks_count} chunks from ${data.files_count} documents`);
+        
+        // Update page title to workflow name
+        const pageTitle = document.getElementById('page-title');
+        if (pageTitle) pageTitle.textContent = workflow;
+        
+        // Hide workflow selector and show main content
+        setTimeout(() => {
+            const selectorEl = document.getElementById('workflow-selector');
+            const mainEl = document.getElementById('main-content');
+            
+            if (selectorEl) selectorEl.classList.add('workflow-selector-hidden');
+            if (mainEl) mainEl.classList.remove('hidden');
+            
+            loading.style.display = 'none';
+            
+            // Focus on chat input
+            setTimeout(() => {
+                const queryInput = document.getElementById('query');
+                if (queryInput) queryInput.focus();
+            }, 100);
+        }, 1500);
+
+    } catch (error) {
+        console.error('Error selecting workflow:', error);
+        showWorkflowError('Failed to ingest documents. Please try again.');
+        loading.style.display = 'none';
+        btn.disabled = false;
+        dropdown_el.disabled = false;
+    }
+}
+
+/* ============================================================================
+   Existing Chat & UI Functions
+   ============================================================================ */
+
 function showTab(name) {
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.getElementById(name).classList.add('active');
@@ -239,28 +708,81 @@ function sendQuery() {
     let btn = input.nextElementSibling;
     let q = input.value.trim();
     if(!q) return;
+    
     appendMessage('user', q);
     input.value = '';
     // disable until response
     input.disabled = true;
     btn.disabled = true;
-    appendMessage('bot', '...');
+    
+    // Create a bot message div that we'll update with streaming content
+    let conv = document.getElementById('conversation');
+    let botMsgDiv = document.createElement('div');
+    botMsgDiv.className = 'message bot';
+    let bubble = document.createElement('span');
+    bubble.className = 'bubble';
+    bubble.textContent = '';
+    botMsgDiv.appendChild(bubble);
+    conv.appendChild(botMsgDiv);
+    
+    let fullResponse = '';
+    
     fetch('/api/chat', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({query: q})
     })
-    .then(r=>r.json())
-    .then(data=>{
-        // remove the loading bubble
-        let conv = document.getElementById('conversation');
-        let last = conv.lastElementChild;
-        if (last && last.classList.contains('bot') && last.textContent.trim() === '...') {
-            conv.removeChild(last);
-        }
-        appendMessage('bot', data.answer || data.error);
+    .then(r => {
+        if (!r.ok) throw new Error('Chat request failed');
+        return r;
     })
-    .finally(()=>{
+    .then(r => {
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        
+        const readStream = () => {
+            return reader.read().then(({ done, value }) => {
+                if (done) {
+                    // Render final markdown
+                    bubble.innerHTML = marked.parse(fullResponse);
+                    return;
+                }
+                
+                // Decode chunk
+                const chunk = decoder.decode(value, { stream: true });
+                
+                // Parse SSE format: "data: {...}\n\n"
+                const lines = chunk.split('\n');
+                for (let line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.chunk) {
+                                fullResponse += data.chunk;
+                                // Update bubble with HTML from markdown
+                                bubble.innerHTML = marked.parse(fullResponse);
+                                // Scroll to bottom
+                                conv.scrollTop = conv.scrollHeight;
+                            } else if (data.error) {
+                                bubble.innerHTML = marked.parse('Error: ' + data.error);
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse SSE data:', e);
+                        }
+                    }
+                }
+                
+                return readStream();
+            });
+        };
+        
+        return readStream();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        bubble.innerHTML = marked.parse('Error: ' + error.message);
+    })
+    .finally(() => {
         input.disabled = false;
         btn.disabled = false;
         input.focus();
@@ -272,8 +794,15 @@ function appendMessage(who, text) {
     div.className = 'message ' + who;
     let bubble = document.createElement('span');
     bubble.className = 'bubble';
-    // preserve newlines
-    bubble.innerHTML = text.replace(/\n/g, '<br>');
+    
+    if (who === 'user') {
+        // User messages are plain text
+        bubble.textContent = text;
+    } else {
+        // Bot messages are rendered as markdown
+        bubble.innerHTML = marked.parse(text);
+    }
+    
     div.appendChild(bubble);
     document.getElementById('conversation').appendChild(div);
     // scroll to bottom
@@ -378,9 +907,39 @@ if (dropArea) {
 }
 
 window.onload = function() {
+    // Initialize: show workflow selector, hide main content
+    const selectorEl = document.getElementById('workflow-selector');
+    const mainEl = document.getElementById('main-content');
+    
+    if (selectorEl) selectorEl.classList.remove('workflow-selector-hidden');
+    if (mainEl) mainEl.classList.add('hidden');
+    
+    // Load available workflows
+    loadWorkflows();
+    
+    // Initialize other UI elements
     refreshDocs();
     refreshUpload();
 };
+
+// Enable/disable select button based on workflow selection
+document.addEventListener('DOMContentLoaded', function() {
+    const dropdown = document.getElementById('workflow-dropdown');
+    const btn = document.getElementById('workflow-select-btn');
+    
+    if (dropdown && btn) {
+        dropdown.addEventListener('change', function() {
+            btn.disabled = !this.value;
+        });
+        
+        // Allow enter key to select workflow
+        dropdown.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !btn.disabled) {
+                selectWorkflow();
+            }
+        });
+    }
+});
 
 function setControlsEnabled(enabled) {
     document.getElementById('uploadBtn').disabled = !enabled;
@@ -401,25 +960,47 @@ function refreshDocs() {
             li.textContent = 'No documents uploaded.';
             ul.appendChild(li);
         } else {
-            data.documents.forEach(name=>{
+            data.documents.forEach(doc=>{
                 let li = document.createElement('li');
                 let nameSpan = document.createElement('span');
-                nameSpan.textContent = name;
+                nameSpan.textContent = doc.name;
                 li.appendChild(nameSpan);
+
+                let tagSpan = document.createElement('span');
+                tagSpan.textContent = doc.tag ? `#${doc.tag}` : '';
+                tagSpan.style.marginLeft = '8px';
+                tagSpan.style.opacity = '0.8';
+                li.appendChild(tagSpan);
+
                 let actions = document.createElement('span');
                 actions.style.gap = '6px';
                 actions.style.display = 'inline-flex';
                 let dl = document.createElement('a');
-                dl.href = '/documents/'+encodeURIComponent(name);
+                dl.href = '/documents/'+encodeURIComponent(doc.name);
                 dl.textContent = 'Download';
                 dl.style.textDecoration = 'none';
                 dl.style.color = '#007bff';
                 actions.appendChild(dl);
+                let tagBtn = document.createElement('button');
+                tagBtn.textContent = 'Tag';
+                tagBtn.style.background = '#10a37f';
+                tagBtn.style.marginLeft = '4px';
+                tagBtn.onclick = ()=>{
+                    let current = doc.tag || '';
+                    let value = prompt('Tag for ' + doc.name + ' (leave blank to clear)', current);
+                    if (value === null) return;
+                    fetch('/api/documents/'+encodeURIComponent(doc.name)+'/tag', {
+                        method: 'PUT',
+                        headers: {'Content-Type':'application/json'},
+                        body: JSON.stringify({tag: value.trim()}),
+                    }).then(r=>r.json()).then(()=>refreshDocs());
+                };
+                actions.appendChild(tagBtn);
                 let del = document.createElement('button');
                 del.textContent = 'Delete';
                 del.style.background = '#dc3545';
                 del.style.marginLeft = '4px';
-                del.onclick = ()=>{fetch('/api/documents/'+encodeURIComponent(name),{method:'DELETE'}).then(refreshDocs);};
+                del.onclick = ()=>{fetch('/api/documents/'+encodeURIComponent(doc.name),{method:'DELETE'}).then(refreshDocs);};
                 actions.appendChild(del);
                 li.appendChild(actions);
                 ul.appendChild(li);
@@ -438,16 +1019,107 @@ function refreshDocs() {
 
 function uploadFile() {
     let fileInput = document.getElementById('fileInput');
+    let tagInput = document.getElementById('tagInput');
     if(fileInput.files.length===0) { alert('choose file'); return;}
     let form = new FormData();
     form.append('file', fileInput.files[0]);
+    if (tagInput && tagInput.value.trim()) {
+        form.append('tag', tagInput.value.trim());
+    }
     fetch('/api/documents/upload',{method:'POST', body:form})
       .then(r=>r.json()).then(data=>{
           alert(data.message||data.error);
+          if (data.tag) {
+              tagInput.value = data.tag;
+          }
           refreshDocs();
           refreshUpload();
       });
 }
+
+function fetchTagSuggestions(prefix) {
+    return fetch('/api/tags?prefix=' + encodeURIComponent(prefix))
+      .then(r=>r.json())
+      .then(data=> (data.tags || []).slice(0, 10))
+      .catch(()=>[]);
+}
+
+function createTagAutocomplete(inputId, containerId, onSelect) {
+    const input = document.getElementById(inputId);
+    const container = document.getElementById(containerId);
+    if (!input || !container) return;
+
+    let timer = null;
+
+    const showSuggestions = (prefix) => {
+        if (!prefix || prefix.length < 3) {
+            container.style.display = 'none';
+            return;
+        }
+        fetchTagSuggestions(prefix).then(tags => {
+            if (!tags.length) {
+                container.style.display = 'none';
+                return;
+            }
+            container.innerHTML = '';
+            tags.forEach(tag => {
+                const item = document.createElement('div');
+                item.className = 'tag-suggestion-item';
+                item.textContent = tag;
+                item.onclick = () => {
+                    onSelect(tag);
+                    container.style.display = 'none';
+                };
+                container.appendChild(item);
+            });
+            container.style.display = 'block';
+        });
+    };
+
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            const value = input.value.trim();
+            showSuggestions(value);
+        }, 150);
+    });
+
+    input.addEventListener('blur', () => {
+        setTimeout(() => { container.style.display = 'none'; }, 150);
+    });
+
+    input.addEventListener('focus', () => {
+        const value = input.value.trim();
+        showSuggestions(value);
+    });
+}
+
+function replaceCurrentTagInQuery(selectedTag) {
+    const input = document.getElementById('query');
+    if (!input) return;
+    const value = input.value;
+    const hashIndex = value.lastIndexOf('#');
+    if (hashIndex === -1) {
+        input.value = value + ' #' + selectedTag + ' ';
+        return;
+    }
+
+    // Replace text from last # to end with selected tag
+    const prefix = value.slice(0, hashIndex);
+    input.value = prefix + '#' + selectedTag + ' ';
+    input.focus();
+}
+
+function attachTagAutocomplete() {
+    createTagAutocomplete('tagInput', 'tagSuggestions', (tag) => {
+        const input = document.getElementById('tagInput');
+        if (input) input.value = tag;
+    });
+
+    createTagAutocomplete('query', 'queryTagSuggestions', replaceCurrentTagInQuery);
+}
+
+window.addEventListener('load', attachTagAutocomplete);
 
 function ingest(){
     fetch('/api/documents/ingest',{method:'POST'})
