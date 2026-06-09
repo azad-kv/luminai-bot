@@ -11,6 +11,13 @@ from flask import (
 from typing import List
 
 import ingest
+from workflow_blueprint import (
+    blueprint_to_text,
+    get_blueprint_stats,
+    get_blueprint_workflow_name,
+    is_workflow_blueprint,
+    read_blueprint_file,
+)
 from workflow_manager import WorkflowManager
 from chatbot import (
     SESSION_ID,
@@ -139,6 +146,93 @@ def get_workflow_files(workflow_name):
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/workflows/blueprint/ingest", methods=["POST"])
+def ingest_workflow_blueprint():
+    """Upload or submit an RPA workflow blueprint JSON and ingest it."""
+    try:
+        blueprint_data = None
+        filename = ""
+        workflow_tag = ""
+
+        if request.is_json:
+            payload = request.get_json(force=True) or {}
+            blueprint_data = payload.get("blueprint") or payload
+            filename = (payload.get("filename") or "").strip()
+            workflow_tag = (payload.get("workflow") or payload.get("tag") or "").strip()
+        elif "file" in request.files:
+            file = request.files["file"]
+            if not file.filename:
+                return jsonify({"error": "No selected file"}), 400
+            blueprint_data = json.loads(file.read().decode("utf-8"))
+            filename = file.filename.strip()
+            workflow_tag = (request.form.get("workflow") or request.form.get("tag") or "").strip()
+        else:
+            return jsonify({"error": "Provide a JSON body or upload a .json blueprint file"}), 400
+
+        if not isinstance(blueprint_data, dict):
+            return jsonify({"error": "Workflow blueprint must be a JSON object"}), 400
+
+        if not is_workflow_blueprint(blueprint_data):
+            return jsonify({
+                "error": "Invalid workflow blueprint",
+                "hint": "Blueprint must include nodes/steps and optionally connections/edges"
+            }), 400
+
+        workflow_name = workflow_tag or get_blueprint_workflow_name(
+            blueprint_data,
+            fallback=os.path.splitext(filename)[0] if filename else "workflow_blueprint",
+        )
+        if not workflow_name:
+            return jsonify({"error": "Workflow name required (set name in blueprint or provide workflow/tag)"}), 400
+
+        if not filename:
+            safe_name = "".join(
+                ch if ch.isalnum() or ch in ("-", "_", " ") else "_"
+                for ch in workflow_name
+            ).strip().replace(" ", "_")
+            filename = f"{safe_name or 'workflow_blueprint'}.json"
+
+        if not filename.lower().endswith(".json"):
+            filename = f"{filename}.json"
+
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(blueprint_data, f, ensure_ascii=False, indent=2)
+
+        tags = load_tags()
+        tags[filename] = workflow_name
+        save_tags(tags)
+
+        result = ingest.ingest_documents(workflow_filter=workflow_name)
+        if not result["success"]:
+            return jsonify(result), 500
+
+        load_resources()
+        set_session_tag(SESSION_ID, workflow_name)
+
+        preview_text = blueprint_to_text(blueprint_data, source_name=filename)
+        files = workflow_manager.get_files_for_workflow(workflow_name)
+        blueprint_stats = get_blueprint_stats(blueprint_data)
+
+        return jsonify({
+            "success": True,
+            "workflow": workflow_name,
+            "filename": filename,
+            "files": files,
+            "files_count": len(files),
+            "chunks_count": result.get("chunks_count", 0),
+            "nodes_count": blueprint_stats["nodes_count"],
+            "connections_count": blueprint_stats["connections_count"],
+            "groundings_count": blueprint_stats["groundings_count"],
+            "preview_text": preview_text[:2000],
+            "message": f"✓ Ingested workflow blueprint '{workflow_name}' from {filename}",
+        })
+    except json.JSONDecodeError:
+        return jsonify({"error": "Invalid JSON file"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e), "details": str(e)}), 500
 
 
 @app.route("/api/workflows/select", methods=["POST"])
@@ -383,11 +477,29 @@ def upload_doc():
     # preserve any existing tag; allow client to override via optional field
     tags = load_tags()
     tag = request.form.get("tag", "").strip()
+    doc_type = "document"
+
+    if filename.lower().endswith(".json"):
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                blueprint_data = json.load(f)
+            if is_workflow_blueprint(blueprint_data):
+                doc_type = "workflow_blueprint"
+                if not tag:
+                    tag = get_blueprint_workflow_name(blueprint_data, fallback="")
+        except Exception:
+            pass
+
     if tag:
         tags[filename] = tag
         save_tags(tags)
 
-    return jsonify({"message": "Uploaded", "filename": filename, "tag": tags.get(filename, "")})
+    return jsonify({
+        "message": "Uploaded",
+        "filename": filename,
+        "tag": tags.get(filename, ""),
+        "doc_type": doc_type,
+    })
 
 
 @app.route("/api/documents/ingest", methods=["POST"])

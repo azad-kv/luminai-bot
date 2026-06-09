@@ -1,0 +1,86 @@
+{
+  "name": "Alma RFL",
+  "description": "Automated workflow for processing Request for Leave (RFL) tickets in the Alma portal.",
+  "version": "1.0",
+  "metadata": {
+    "owner": "Operations",
+    "system": "Alma Portal"
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "trigger",
+      "label": "Receive RFL Ticket",
+      "description": "Workflow starts when a new RFL ticket is assigned in the queue."
+    },
+    {
+      "id": "open_portal",
+      "type": "action",
+      "label": "Open Alma Portal",
+      "description": "Navigate to the Alma member portal and authenticate.",
+      "url": "https://portal.alma.example.com",
+      "config": {
+        "login_method": "sso",
+        "timeout_seconds": 30
+      }
+    },
+    {
+      "id": "lookup_member",
+      "type": "action",
+      "label": "Lookup Member Record",
+      "description": "Search for the member using ticket ID and verify account status.",
+      "input": "ticket.member_id",
+      "output": "member_record"
+    },
+    {
+      "id": "check_eligibility",
+      "type": "condition",
+      "label": "Check RFL Eligibility",
+      "description": "Determine whether the member is eligible for leave processing."
+    },
+    {
+      "id": "process_rfl",
+      "type": "action",
+      "label": "Process RFL Request",
+      "description": "Submit the leave request and attach required documentation.",
+      "config": {
+        "required_documents": ["provider_note", "member_consent"]
+      }
+    },
+    {
+      "id": "notify_team",
+      "type": "action",
+      "label": "Notify Care Team",
+      "description": "Send confirmation email to the care team with ticket summary."
+    },
+    {
+      "id": "close_ticket",
+      "type": "action",
+      "label": "Close Ticket",
+      "description": "Mark the RFL ticket as resolved in the queue."
+    },
+    {
+      "id": "reject_ticket",
+      "type": "action",
+      "label": "Reject Ineligible Request",
+      "description": "Add rejection reason and route ticket back to manual review."
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "label": "Workflow Complete",
+      "description": "Workflow execution finished."
+    }
+  ],
+  "connections": [
+    { "from": "start", "to": "open_portal" },
+    { "from": "open_portal", "to": "lookup_member" },
+    { "from": "lookup_member", "to": "check_eligibility" },
+    { "from": "check_eligibility", "to": "process_rfl", "label": "eligible" },
+    { "from": "check_eligibility", "to": "reject_ticket", "label": "ineligible" },
+    { "from": "process_rfl", "to": "notify_team" },
+    { "from": "notify_team", "to": "close_ticket" },
+    { "from": "close_ticket", "to": "end" },
+    { "from": "reject_ticket", "to": "end" }
+  ]
+}

@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from pypdf import PdfReader
 from google import genai
 
+from workflow_blueprint import is_workflow_blueprint, blueprint_to_text, get_blueprint_workflow_name
+
 load_dotenv()
 
 DOCS_DIR = "documents"
@@ -68,7 +70,23 @@ def load_documents(workflow_filter: str = ""):
             docs.append({"source": name, "text": read_txt(path), "tag": doc_tag})
         elif name.lower().endswith(".pdf"):
             docs.append({"source": name, "text": read_pdf(path), "tag": doc_tag})
-    
+        elif name.lower().endswith(".json"):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if not is_workflow_blueprint(data):
+                    continue
+                text = blueprint_to_text(data, source_name=name)
+                effective_tag = doc_tag or get_blueprint_workflow_name(data, fallback="")
+                docs.append({
+                    "source": name,
+                    "text": text,
+                    "tag": effective_tag,
+                    "doc_type": "workflow_blueprint",
+                })
+            except Exception as exc:
+                print(f"Skipping invalid workflow blueprint {name}: {exc}")
+
     return docs
 
 def chunk_text(text: str, chunk_size=1000, chunk_overlap=200):
@@ -115,7 +133,7 @@ def ingest_documents(workflow_filter: str = "") -> dict:
 
     if not all_chunks:
         filter_text = f" for workflow '{workflow_filter}'" if workflow_filter else ""
-        print(f"No documents found in /documents{filter_text} (supported: .txt, .pdf).")
+        print(f"No documents found in /documents{filter_text} (supported: .txt, .pdf, workflow .json).")
         return {"success": False, "error": "No documents found"}
 
     print(f"Processing {len(all_chunks)} chunks from {len(docs)} documents...")
