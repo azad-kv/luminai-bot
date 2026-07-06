@@ -61,23 +61,17 @@ def load_documents(workflow_filter: str = ""):
             continue
         
         doc_tag = tags.get(name, "")
-        
-        # If filtering by workflow, skip documents that don't match
-        if workflow_filter and doc_tag.strip() != workflow_filter:
-            continue
-        
-        if name.lower().endswith(".txt"):
-            docs.append({"source": name, "text": read_txt(path), "tag": doc_tag})
-        elif name.lower().endswith(".pdf"):
-            docs.append({"source": name, "text": read_pdf(path), "tag": doc_tag})
-        elif name.lower().endswith(".json"):
+
+        if name.lower().endswith(".json"):
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 if not is_workflow_blueprint(data):
                     continue
+                effective_tag = doc_tag.strip() or get_blueprint_workflow_name(data, fallback="")
+                if workflow_filter and effective_tag != workflow_filter:
+                    continue
                 text = blueprint_to_text(data, source_name=name)
-                effective_tag = doc_tag or get_blueprint_workflow_name(data, fallback="")
                 docs.append({
                     "source": name,
                     "text": text,
@@ -86,7 +80,16 @@ def load_documents(workflow_filter: str = ""):
                 })
             except Exception as exc:
                 print(f"Skipping invalid workflow blueprint {name}: {exc}")
+            continue
 
+        if workflow_filter and doc_tag.strip() != workflow_filter:
+            continue
+        
+        if name.lower().endswith(".txt"):
+            docs.append({"source": name, "text": read_txt(path), "tag": doc_tag})
+        elif name.lower().endswith(".pdf"):
+            docs.append({"source": name, "text": read_pdf(path), "tag": doc_tag})
+    
     return docs
 
 def chunk_text(text: str, chunk_size=1000, chunk_overlap=200):

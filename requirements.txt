@@ -3,5 +3,6 @@ pypdf
 python-dotenv
 google-genai
 openai
+langchain-openai
 faiss-cpu
 numpy

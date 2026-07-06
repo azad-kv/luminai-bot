@@ -23,6 +23,8 @@ MEMORY_EMBEDDING_PROVIDER = os.getenv(
 
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+KV_LLM_LITE_MODEL = os.getenv("KV_LLM_LITE_MODEL", "gemini-2.0-flash")
+LITE_LLM_KEY = os.getenv("LITE_LLM_KEY")
 
 TOP_K_DOCS = int(os.getenv("TOP_K_DOCS", "6"))
 TOP_K_MEMORY = int(os.getenv("TOP_K_MEMORY", "3"))
@@ -112,12 +114,38 @@ class OpenAIClient(LLMClient):
         return (resp.output_text or "").strip()
 
 
+class LiteLLMClient(LLMClient):
+    def __init__(self) -> None:
+        self.client = init_lite_llm()
+
+    def generate(self, prompt: str) -> str:
+        response = self.client.invoke(prompt)
+        content = getattr(response, "content", response)
+        return str(content).strip()
+
+
+def init_lite_llm():
+    """Initialize the Lite LLM client backed by KeyValue Systems."""
+    from langchain_openai import ChatOpenAI
+
+    if not LITE_LLM_KEY:
+        raise ValueError("Missing LITE_LLM_KEY.")
+
+    return ChatOpenAI(
+        model="gpt-4o-mini",
+        api_key=LITE_LLM_KEY,
+        base_url="https://llm.keyvalue.systems",
+    )
+
+
 def get_llm_client() -> LLMClient:
     if GENERATION_PROVIDER == "gemini":
         return GeminiClient()
     if GENERATION_PROVIDER == "openai":
         return OpenAIClient()
-    raise ValueError("GENERATION_PROVIDER must be 'gemini' or 'openai'.")
+    if GENERATION_PROVIDER == "lite":
+        return LiteLLMClient()
+    raise ValueError("GENERATION_PROVIDER must be 'gemini', 'openai', or 'lite'.")
 
 
 def retrieve_document_chunks(
