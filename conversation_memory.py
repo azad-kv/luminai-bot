@@ -6,12 +6,17 @@ from typing import Any, Dict, List, Optional, Tuple
 import faiss
 import numpy as np
 
+SUPPORTED_EMBEDDING_PROVIDERS = frozenset({"gemini", "openai", "lite"})
+LITE_LLM_BASE_URL = os.getenv("LITE_LLM_BASE_URL", "https://llm.keyvalue.systems")
+LITE_EMBEDDING_MODEL = os.getenv("LITE_EMBEDDING_MODEL", "text-embedding-3-small")
+
 
 class Embedder:
     def __init__(self, provider: str = "gemini") -> None:
         self.provider = provider.strip().lower()
-        if self.provider not in {"gemini", "openai"}:
-            raise ValueError("Embedding provider must be 'gemini' or 'openai'.")
+        if self.provider not in SUPPORTED_EMBEDDING_PROVIDERS:
+            supported = ", ".join(sorted(SUPPORTED_EMBEDDING_PROVIDERS))
+            raise ValueError(f"Embedding provider must be one of: {supported}.")
 
     def embed_texts(self, texts: List[str]) -> np.ndarray:
         if not texts:
@@ -19,6 +24,8 @@ class Embedder:
 
         if self.provider == "gemini":
             return self._embed_with_gemini(texts)
+        if self.provider == "lite":
+            return self._embed_with_lite(texts)
         return self._embed_with_openai(texts)
 
     def embed_query(self, text: str) -> np.ndarray:
@@ -53,6 +60,22 @@ class Embedder:
         client = OpenAI(api_key=api_key)
         res = client.embeddings.create(
             model="text-embedding-3-small",
+            input=texts,
+        )
+        vectors = np.array([d.embedding for d in res.data], dtype="float32")
+        faiss.normalize_L2(vectors)
+        return vectors
+
+    def _embed_with_lite(self, texts: List[str]) -> np.ndarray:
+        from openai import OpenAI
+
+        api_key = os.getenv("LITE_LLM_KEY")
+        if not api_key:
+            raise ValueError("Missing LITE_LLM_KEY for Lite LLM embeddings.")
+
+        client = OpenAI(api_key=api_key, base_url=LITE_LLM_BASE_URL)
+        res = client.embeddings.create(
+            model=LITE_EMBEDDING_MODEL,
             input=texts,
         )
         vectors = np.array([d.embedding for d in res.data], dtype="float32")

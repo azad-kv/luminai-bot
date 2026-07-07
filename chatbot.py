@@ -6,10 +6,10 @@ from typing import Any, Dict, List, Tuple
 import faiss
 from dotenv import load_dotenv
 
+load_dotenv()
+
 from conversation_memory import ConversationMemoryIndex, Embedder
 from memory_store import MemoryStore
-
-load_dotenv()
 
 INDEX_DIR = "index"
 INDEX_PATH = os.path.join(INDEX_DIR, "faiss.index")

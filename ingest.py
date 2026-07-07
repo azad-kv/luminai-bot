@@ -3,17 +3,18 @@ import numpy as np
 import faiss
 from dotenv import load_dotenv
 from pypdf import PdfReader
-from google import genai
-
-from workflow_blueprint import is_workflow_blueprint, blueprint_to_text, get_blueprint_workflow_name
 
 load_dotenv()
+
+from conversation_memory import Embedder
+from workflow_blueprint import is_workflow_blueprint, blueprint_to_text, get_blueprint_workflow_name
 
 DOCS_DIR = "documents"
 INDEX_DIR = "index"
 INDEX_PATH = os.path.join(INDEX_DIR, "faiss.index")
 CHUNKS_PATH = os.path.join(INDEX_DIR, "chunks.jsonl")
 TAGS_PATH = "document_tags.json"
+DOC_EMBEDDING_PROVIDER = os.getenv("DOC_EMBEDDING_PROVIDER", "gemini").strip().lower()
 
 
 def load_tags() -> dict[str, str]:
@@ -26,8 +27,6 @@ def load_tags() -> dict[str, str]:
 def save_tags(tags: dict[str, str]) -> None:
     with open(TAGS_PATH, "w", encoding="utf-8") as f:
         json.dump(tags, f, ensure_ascii=False, indent=2)
-
-EMBED_MODEL = "gemini-embedding-001"  # official embeddings example model :contentReference[oaicite:4]{index=4}
 
 def read_txt(path: str) -> str:
     with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -102,13 +101,6 @@ def chunk_text(text: str, chunk_size=1000, chunk_overlap=200):
         start = max(end - chunk_overlap, start + 1)
     return chunks
 
-def embed_texts(client: genai.Client, texts: list[str]) -> np.ndarray:
-    # Docs: embed_content supports list-of-strings ("contents") :contentReference[oaicite:5]{index=5}
-    res = client.models.embed_content(model=EMBED_MODEL, contents=texts)
-    # SDK returns embeddings objects; each has "values" (vector floats)
-    vectors = [e.values for e in res.embeddings]
-    return np.array(vectors, dtype="float32")
-
 def ingest_documents(workflow_filter: str = "") -> dict:
     """Ingest documents and build FAISS index.
     
@@ -120,8 +112,7 @@ def ingest_documents(workflow_filter: str = "") -> dict:
     """
     os.makedirs(INDEX_DIR, exist_ok=True)
 
-    client = genai.Client()  # auto-picks GEMINI_API_KEY env var
-
+    embedder = Embedder(DOC_EMBEDDING_PROVIDER)
     docs = load_documents(workflow_filter=workflow_filter)
     all_chunks = []
 
@@ -140,6 +131,7 @@ def ingest_documents(workflow_filter: str = "") -> dict:
         return {"success": False, "error": "No documents found"}
 
     print(f"Processing {len(all_chunks)} chunks from {len(docs)} documents...")
+    print(f"Using embedding provider: {DOC_EMBEDDING_PROVIDER}")
 
     # Embed in batches
     batch_size = 64
@@ -147,16 +139,13 @@ def ingest_documents(workflow_filter: str = "") -> dict:
     for i in range(0, len(all_chunks), batch_size):
         batch = all_chunks[i:i+batch_size]
         print(f"  Embedding batch {i//batch_size + 1}/{(len(all_chunks) + batch_size - 1)//batch_size}...")
-        vectors = embed_texts(client, [b["text"] for b in batch])
+        vectors = embedder.embed_texts([b["text"] for b in batch])
         vecs.append(vectors)
     
     vecs = np.vstack(vecs)
 
     dim = vecs.shape[1]
     index = faiss.IndexFlatIP(dim)
-
-    # Normalize to use cosine similarity via inner product
-    faiss.normalize_L2(vecs)
     index.add(vecs)
 
     faiss.write_index(index, INDEX_PATH)

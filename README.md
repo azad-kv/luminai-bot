@@ -1,524 +1,339 @@
 # Luminai Documentation RAG Chatbot
 
-A memory-enabled Retrieval-Augmented Generation (RAG) chatbot that intelligently retrieves information from tagged document workflows and maintains conversation context.
-
-## Recent Changes
-
-### New Workflow Selection Feature
-
-This update introduces the ability to select a specific workflow (tag) before querying the chatbot. When you select a workflow, only documents tagged with that workflow are ingested into the search index.
-
-#### What's New
-
-1. **workflow_manager.py** - New module for managing workflows
-   - `get_all_workflows()` - Extract unique tags from document_tags.json
-   - `get_files_for_workflow(workflow)` - Get all documents for a specific workflow
-   - `is_valid_workflow(workflow)` - Validate workflow existence
-
-2. **ingest.py** - Enhanced to support selective ingestion
-   - `ingest_documents(workflow_filter="")` - Ingest documents optionally filtered by workflow tag
-   - `load_documents(workflow_filter="")` - Load and filter documents by workflow
-   - Maintains backward compatibility with full ingestion
-
-3. **app.py** - New API endpoints for workflow management
-   - `GET /api/workflows` - List all available workflows
-   - `GET /api/workflows/<workflow_name>/files` - Get files for a workflow
-   - `POST /api/workflows/select` - Select and ingest a workflow
-   - `GET /api/workflow/status` - Check current workflow status
+A memory-enabled Retrieval-Augmented Generation (RAG) chatbot for Luminai workflow documentation. It ingests PDFs, text files, and Luminai workflow blueprint JSON files, indexes them with embeddings, and answers questions with conversation context.
 
 ---
 
-## System Architecture
+## Installation
 
-### Core Components
-
-- **Flask Web Server** (`app.py`) - REST API and HTML serving
-- **RAG Engine** (`chatbot.py`) - Query routing, retrieval, LLM integration
-- **Document Indexing** (`ingest.py`) - PDF/text chunking and embedding
-- **Memory System** (`memory_store.py`, `conversation_memory.py`) - Conversation history
-- **Workflow Management** (`workflow_manager.py`) - Tag-based document organization
-
-### Data Flow
-
-```
-1. User selects workflow → Select API endpoint
-   ↓
-2. Filter documents by tag → ingest_documents(workflow_filter)
-   ↓
-3. Chunk & embed documents → FAISS index + chunks.jsonl
-   ↓
-4. User queries → Retrieve relevant chunks + conversation memory
-   ↓
-5. LLM generates answer → Store in memory, update active sources
-   ↓
-6. Response streamed to UI
-```
-
----
-
-## Installation & Setup
-
-### 1. Prerequisites
+### Prerequisites
 
 - Python 3.9+
-- pip package manager
-- API keys for embeddings and LLM generation
+- pip
+- API keys for your chosen LLM/embedding provider (see [LLMs Supported](#llms-supported))
 
-### 2. Clone & Install Dependencies
+### Setup
 
 ```bash
-cd /home/azad/luminai-documentation-rag
+cd luminai-documentation-rag
 
-# Create virtual environment (optional but recommended)
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 3. Environment Configuration
+Use the project virtualenv for all commands below (`venv/bin/python` or an activated shell).
+
+### Environment configuration
 
 Create a `.env` file in the project root:
 
 ```bash
-# LLM Generation Provider (gemini or openai)
-GENERATION_PROVIDER=gemini
+# Generation (gemini | openai | lite)
+GENERATION_PROVIDER=lite
 
-# Document Embedding Provider (gemini or openai)
-DOC_EMBEDDING_PROVIDER=gemini
+# Embeddings for documents and memory (gemini | openai | lite)
+DOC_EMBEDDING_PROVIDER=lite
+MEMORY_EMBEDDING_PROVIDER=lite
 
-# Memory Embedding Provider (defaults to DOC_EMBEDDING_PROVIDER)
-MEMORY_EMBEDDING_PROVIDER=gemini
+# Lite LLM (KeyValue Systems gateway)
+LITE_LLM_KEY=your_lite_llm_key_here
+KV_LLM_LITE_MODEL=gpt-4o-mini
+LITE_EMBEDDING_MODEL=text-embedding-3-small
+LITE_LLM_BASE_URL=https://llm.keyvalue.systems
 
-# API Keys
-GEMINI_API_KEY=your_gemini_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here  # If using OpenAI
+# Optional: direct provider keys if not using lite
+GEMINI_API_KEY=your_gemini_key_here
+OPENAI_API_KEY=your_openai_key_here
 
-# Optional: Session Configuration
 SESSION_ID=default
-ENABLE_QUERY_ROUTING_DEBUG=false
-FOLLOWUP_MIN_RELEVANCE=0.35
-
-# Optional: Retrieval Parameters
 TOP_K_DOCS=6
 TOP_K_MEMORY=3
-RECENT_TURNS=6
-SUMMARY_EVERY_N_MESSAGES=6
-MAX_DOC_CONTEXT_CHARS=10000
-MAX_MEMORY_CONTEXT_CHARS=4000
 ```
 
-### 4. Prepare Documents
+**Important:** Do not define the same variable twice in `.env`. If `MEMORY_EMBEDDING_PROVIDER` appears more than once, the last value wins.
 
-Place your documents in the `documents/` directory:
+### Prepare documents
 
-```bash
+Place files in `documents/` and map them to workflows in `document_tags.json`:
+
+```text
 documents/
   ├── Alma RFL.pdf
-  ├── Alma- Invoice Issuing.pdf
-  ├── Circle Medical - Medication Refills.pdf
-  └── ... (other PDFs and TXT files)
+  ├── Hazel - Document Call from Zendesk.json
+  └── ...
 ```
-
-### 5. Tag Your Documents
-
-Edit `document_tags.json` to map filenames to workflow tags:
 
 ```json
 {
   "Alma RFL.pdf": "Alma RFL",
-  "Alma- Invoice Issuing.pdf": "Alma Invoice Issuing",
-  "Alma-Payment Plan Creation.pdf": "Alma Payment Plan Creation",
-  "Circle Chargeback - Disputes.docx.pdf": "Circle Chargeback Disputes",
-  ...
+  "Hazel - Document Call from Zendesk.json": "Hazel - Document Call from Zendesk"
 }
 ```
 
-**Note:** Document filenames must match exactly, including extension and case.
+Supported file types: `.pdf`, `.txt`, and workflow blueprint `.json`.
 
 ---
 
-## Usage
+## Web UI Walkthrough
 
-### Starting the Server
+### 1. Start the server
 
 ```bash
-# Option 1: Run Flask development server
 python3 app.py
-
-# Option 2: Run with gunicorn (production)
-gunicorn --workers 4 --bind 0.0.0.0:5000 app:app
 ```
 
-The chatbot will be available at: **http://localhost:5000**
+Open **http://localhost:5000**
 
-### Web Interface
+### 2. Select a workflow
 
-#### 1. Workflow Selection (Initial Step)
+On first load you see the **workflow selector**:
 
-When you first open the chatbot, you'll see a workflow selector:
+1. Choose a workflow from the dropdown (e.g. `Hazel - Document Call from Zendesk`)
+2. Click **Select & Ingest**
+3. Wait for ingestion to finish — only documents tagged with that workflow are indexed
 
-**Steps:**
-1. Click the "Workflows" tab or the workflow selector dropdown
-2. Choose a workflow from the list (e.g., "Alma RFL", "Circle Medical")
-3. Click "Select & Ingest"
-4. Wait for the ingestion to complete (you'll see a progress message)
-5. Once ready, proceed to the Chat tab
+This builds `index/faiss.index` and `index/chunks.jsonl` for the selected workflow.
 
-**What happens:**
-- Only documents tagged with that workflow are loaded
-- A FAISS vector index is built from those documents
-- The chatbot is now ready to answer questions about that workflow
+### 3. Chat
 
-#### 2. Chat Tab
+1. Open the **Chat** tab
+2. Type a question, e.g. `Explain the Hazel Document Call from Zendesk workflow`
+3. Press Enter — the answer streams in with retrieved document context
 
-**Query the chatbot:**
+The chatbot remembers conversation context and supports follow-up questions.
 
-1. Type your question in the input field
-2. Press Enter or click "Send"
-3. The chatbot retrieves relevant document chunks and generates an answer
-4. Sources are displayed below the response
+### 4. Documents tab
 
-**Features:**
-- **Follow-up Questions:** The chatbot remembers conversation context
-- **Source Continuity:** Automatically stays within the workflow unless switching is necessary
-- **Phase References:** Use follow-ups like "Tell me more", "Explain that", "What about..."
+- Click **Refresh list** to see documents in the active workflow
+- Review which files are available for retrieval
 
-**Tag Filtering (Advanced):**
-- If needed, force a specific tag in your query: `#TagName your question here`
-- The chatbot will only search documents with that tag
+### 5. Upload tab
 
-#### 3. Documents Tab
+Add new files without leaving the UI:
 
-**View and manage documents:**
+1. Drag and drop or select a `.pdf`, `.txt`, or blueprint `.json`
+2. Enter a workflow tag (optional for blueprints with a `name` field)
+3. Click **Upload**
+4. Click **Chunk and Ingest** to rebuild the index
 
-1. Click "Refresh list" to update the document list
-2. See all documents currently in the active workflow
-3. Review which documents are available for retrieval
+Blueprint JSON files are auto-detected and tagged from their internal workflow name when no tag is provided.
 
-#### 4. Upload Tab
+### 6. Change workflow
 
-**Add new documents:**
-
-1. **Drag & drop** a PDF or TXT file, or click to select
-2. **Enter a tag** for the document (e.g., "Alma RFL", "Circle Medical")
-3. Click **Upload** to save the file
-4. Click **Chunk and Ingest** to process all pending documents
-5. The chatbot index will be updated
+Click **← Change Workflow** in the header to return to the selector and ingest a different workflow.
 
 ---
 
-## API Reference
+## Architecture
 
-### Workflow APIs
+### Data flow
 
-#### Get All Workflows
-```
-GET /api/workflows
-```
-
-**Response:**
-```json
-{
-  "workflows": ["Alma RFL", "Circle Medical", "Rothman"],
-  "current": "Alma RFL",
-  "count": 3
-}
-```
-
-#### Get Files for a Workflow
-```
-GET /api/workflows/Alma%20RFL/files
+```text
+1. User selects workflow (web UI or API)
+        ↓
+2. Documents + blueprint JSON filtered by tag
+        ↓
+3. Text extracted → chunked → embedded → FAISS index
+        ↓
+4. User query → embed → retrieve top chunks + conversation memory
+        ↓
+5. LLM generates answer → stored in session memory
+        ↓
+6. Response streamed to UI
 ```
 
-**Response:**
-```json
-{
-  "workflow": "Alma RFL",
-  "files": ["Alma RFL.pdf", "Alma- Invoice Issuing.pdf"],
-  "count": 2
-}
+### Core components
+
+| File | Role |
+|------|------|
+| `app.py` | Flask server, REST API, web UI |
+| `chatbot.py` | RAG engine, query routing, LLM clients |
+| `ingest.py` | Document loading, chunking, indexing |
+| `workflow_manager.py` | Workflow/tag discovery |
+| `workflow_blueprint.py` | Luminai JSON → searchable text |
+| `conversation_memory.py` | Embedding providers + memory FAISS index |
+| `memory_store.py` | SQLite conversation history |
+| `reindex_memory.py` | Rebuild memory index after provider changes |
+
+### Project structure
+
+```text
+luminai-documentation-rag/
+├── app.py                     # Web server + API
+├── chatbot.py                 # RAG + LLM logic
+├── ingest.py                  # Document indexing
+├── workflow_manager.py        # Workflow/tag management
+├── workflow_blueprint.py      # JSON blueprint parser
+├── conversation_memory.py     # Memory embeddings
+├── memory_store.py            # SQLite message store
+├── reindex_memory.py          # Rebuild memory index
+├── templates/index.html       # Web UI
+├── documents/                 # Source files (PDF, TXT, JSON)
+├── index/                     # Document FAISS index
+├── memory_index/              # Conversation memory index
+├── examples/                  # Sample blueprint JSON
+├── document_tags.json         # Filename → workflow mapping
+├── session.db                 # Message history
+├── requirements.txt
+└── README.md
 ```
 
-#### Select and Ingest a Workflow
-```
-POST /api/workflows/select
-Content-Type: application/json
+### Workflow blueprint JSON
 
-{
-  "workflow": "Alma RFL"
-}
-```
+Luminai exports (e.g. `Hazel - Document Call from Zendesk.json`) are parsed into searchable text:
 
-**Response:**
-```json
-{
-  "success": true,
-  "workflow": "Alma RFL",
-  "files": ["Alma RFL.pdf", "Alma- Invoice Issuing.pdf"],
-  "files_count": 2,
-  "chunks_count": 245,
-  "message": "✓ Ingested 2 documents for workflow 'Alma RFL'"
-}
-```
+- Workflow name, description, and build status
+- Steps: integrations, UI interactions, branches, loops
+- Connections between nodes
+- Grounded automation scripts (secrets stripped)
 
-#### Get Workflow Status
-```
-GET /api/workflow/status
-```
-
-**Response:**
-```json
-{
-  "current_workflow": "Alma RFL",
-  "is_ready": true,
-  "files_count": 2,
-  "has_index": true,
-  "has_chunks": true,
-  "has_llm": true
-}
-```
-
-#### Query the Chatbot
-```
-POST /api/chat
-Content-Type: application/json
-
-{
-  "query": "What are the steps for RFL?"
-}
-```
-
-**Response:**
-```json
-{
-  "answer": "Based on the Alma RFL documentation, the steps are...",
-  "sources": ["Alma RFL.pdf"]
-}
-```
-
----
-
-## Command Line Usage
-
-### Ingest Documents for a Specific Workflow
+Upload via the **Upload** tab or API:
 
 ```bash
-# In Python shell or script
-from ingest import ingest_documents
-
-# Ingest all documents
-result = ingest_documents()
-print(result)  # {'success': True, 'chunks_count': 500, 'docs_count': 10, 'workflow': 'all'}
-
-# Ingest specific workflow
-result = ingest_documents(workflow_filter="Alma RFL")
-print(result)  # {'success': True, 'chunks_count': 150, 'docs_count': 3, 'workflow': 'Alma RFL'}
+curl -X POST http://localhost:5000/api/workflows/blueprint/ingest \
+  -F "file=@documents/Hazel - Document Call from Zendesk.json"
 ```
 
-### Chat Interface (CLI)
+See `examples/sample_workflow_blueprint.json` for a simplified generic schema.
+
+---
+
+## LLMs Supported
+
+Three providers are supported for **generation** and **embeddings**, configured independently in `.env`.
+
+| Provider | Env value | Generation | Embeddings | API key |
+|----------|-----------|------------|------------|---------|
+| **Lite LLM** | `lite` | `gpt-4o-mini` via KeyValue gateway | `text-embedding-3-small` | `LITE_LLM_KEY` |
+| **Gemini** | `gemini` | `GEMINI_MODEL` (default `gemini-2.0-flash`) | `gemini-embedding-001` | `GEMINI_API_KEY` |
+| **OpenAI** | `openai` | `OPENAI_MODEL` (default `gpt-4o-mini`) | `text-embedding-3-small` | `OPENAI_API_KEY` |
+
+### Configuration variables
+
+| Variable | Values | Purpose |
+|----------|--------|---------|
+| `GENERATION_PROVIDER` | `gemini`, `openai`, `lite` | Answer generation |
+| `DOC_EMBEDDING_PROVIDER` | `gemini`, `openai`, `lite` | Document retrieval embeddings |
+| `MEMORY_EMBEDDING_PROVIDER` | `gemini`, `openai`, `lite` | Conversation memory embeddings |
+
+### Lite LLM-specific variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `LITE_LLM_KEY` | — | API key for KeyValue gateway |
+| `LITE_LLM_BASE_URL` | `https://llm.keyvalue.systems` | Gateway base URL |
+| `KV_LLM_LITE_MODEL` | `gpt-4o-mini` | Chat model |
+| `LITE_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model |
+
+### Provider switching notes
+
+- Document and memory indexes must be built with the **same** embedding provider
+- After changing providers, rebuild both indexes:
+
+```bash
+python3 ingest.py              # or select workflow in UI
+python3 reindex_memory.py      # rebuild conversation memory
+```
+
+- Typical embedding dimensions: Gemini ≈ 3072, Lite/OpenAI = 1536
+
+---
+
+## Dependencies
+
+Installed via `pip install -r requirements.txt`:
+
+| Package | Purpose |
+|---------|---------|
+| `flask` | Web server and REST API |
+| `pypdf` | PDF text extraction |
+| `python-dotenv` | `.env` configuration loading |
+| `google-genai` | Gemini generation and embeddings |
+| `openai` | OpenAI and Lite LLM embeddings |
+| `langchain-openai` | Lite LLM chat client (`ChatOpenAI`) |
+| `faiss-cpu` | Vector similarity search |
+| `numpy` | Embedding array operations |
+
+SQLite is used for conversation storage (stdlib, no extra install).
+
+---
+
+## Additional usage
+
+### CLI chat
 
 ```bash
 python3 chatbot.py
 ```
 
-**Commands:**
-- `:workflows` - List all available workflows
-- `:select "Alma RFL"` - Select a workflow (CLI only)
-- `:summary` - Show conversation summary
-- `:facts` - List extracted facts
-- `:session` - Show session ID
-- `:sources` - Show active document sources
-- `:quit` or `:exit` - Exit chatbot
+| Command | Description |
+|---------|-------------|
+| `:summary` | Show conversation summary |
+| `:facts` | List extracted facts |
+| `:session` | Show session ID |
+| `:sources` | Show active document sources |
+| `:quit` / `:exit` | Exit |
 
-**Example:**
-```
-Ask> :workflows
-Available workflows:
-- Alma RFL
-- Circle Medical
-- Rothman
+### API reference
 
-Ask> What are the payment options?
-Answer: Based on the documents, payment options include...
-[Relevant sources listed]
-```
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/workflows` | GET | List workflows |
+| `/api/workflows/<name>/files` | GET | Files in a workflow |
+| `/api/workflows/select` | POST | Select and ingest a workflow |
+| `/api/workflows/blueprint/ingest` | POST | Upload/ingest a blueprint JSON |
+| `/api/workflow/status` | GET | Current workflow status |
+| `/api/chat` | POST | Send a query (SSE stream) |
+| `/api/documents` | GET | List all documents |
+| `/api/documents/upload` | POST | Upload a file |
+| `/api/documents/ingest` | POST | Ingest all documents |
 
----
-
-## Project Structure
-
-```
-luminai-documentation-rag/
-├── app.py                          # Flask web server & API endpoints
-├── chatbot.py                      # RAG engine & query routing
-├── ingest.py                       # Document chunking & indexing
-├── workflow_manager.py             # NEW: Workflow/tag management
-├── conversation_memory.py          # Memory embeddings & search
-├── memory_store.py                 # SQLite conversation storage
-├── reindex_memory.py               # Memory index rebuild utility
-├── templates/
-│   └── index.html                  # Web UI
-├── documents/                      # User-uploaded PDFs & TXTs
-├── index/
-│   ├── faiss.index                 # Vector search index
-│   └── chunks.jsonl                # Document chunks metadata
-├── memory_index/
-│   ├── memory.faiss                # Conversation memory index
-│   └── memory_chunks.jsonl         # Message metadata
-├── document_tags.json              # Filename → workflow mapping
-├── active_sources.json             # Session state & active workflow
-├── session.db                      # SQLite message history
-├── requirements.txt                # Python dependencies
-└── README.md                       # This file
+```bash
+curl -X POST http://localhost:5000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What are the steps in this workflow?"}'
 ```
 
----
+### Command-line ingestion
 
-## Features
+```bash
+# Ingest all documents
+python3 ingest.py
 
-### Smart Query Routing
-- Automatically detects follow-up questions
-- Maintains context across multiple turns
-- Intelligently switches document sets when necessary
-- Falls back to heuristics if LLM routing fails
-
-### Conversation Memory
-- Stores all messages in SQLite
-- Embeds messages for semantic search
-- Retrieves relevant prior context for each query
-- Periodic extraction of key facts
-- Automatic conversation summarization
-
-### Document Management
-- Tag-based organization of documents
-- Selective ingestion by workflow
-- Batch embedding for efficiency
-- FAISS vector indexing for fast retrieval
-- Metadata tracking (source, tag, chunk ID)
-
-### Multi-Provider Support
-- Gemini (default) or OpenAI for LLM generation
-- Gemini (default) or OpenAI for embeddings
-- Flexible configuration via environment variables
+# Ingest one workflow
+python3 -c "from ingest import ingest_documents; print(ingest_documents(workflow_filter='Alma RFL'))"
+```
 
 ---
 
 ## Troubleshooting
 
-### "Index or model not available" Error
-**Solution:** 
-- Select a workflow first using the workflow selector
-- Or run ingestion: `python3 ingest.py`
+### `Missing LITE_LLM_KEY for Lite LLM embeddings`
 
-### "Missing GEMINI_API_KEY" Error
-**Solution:**
-- Add your API key to `.env` file
-- Or set environment variable: `export GEMINI_API_KEY=your_key`
+Confirm `LITE_LLM_KEY` is set in `.env`, restart the app, and run from the project venv.
 
-### Slow Embedding
-**Solution:**
-- This is normal for first ingestion (building embeddings from scratch)
-- Subsequent queries will be faster (cached embeddings)
-- For large workflows, consider batching uploads
+### `Memory index dimension mismatch. Existing=3072, new=1536`
 
-### Memory Index Dimension Mismatch
-**Solution:**
-```bash
-# Rebuild memory index
-python3 reindex_memory.py
-```
+Embedding provider changed without rebuilding memory. Run `python3 reindex_memory.py`.
 
-### Missing Documents in Workflow
-**Solution:**
-- Check `document_tags.json` for exact filename matching
-- Verify files are in `documents/` directory
-- Refresh the page and re-select the workflow
+### Memory provider shows `gemini` but `.env` says `lite`
+
+Check for duplicate `MEMORY_EMBEDDING_PROVIDER` lines in `.env` — only keep one.
+
+### `429 RESOURCE_EXHAUSTED` (Gemini)
+
+Gemini credits depleted. Switch to `lite` or `openai` and rebuild indexes.
+
+### `Index or model not available`
+
+Select a workflow in the UI or run `python3 ingest.py` first.
+
+### No documents found for a workflow
+
+Verify exact filename in `document_tags.json` and that the file exists in `documents/`.
 
 ---
 
-## Performance Optimization
-
-### Embedding Batch Size
-The system embeds documents in batches of 64. For very large workflows (1000+ documents), you may need to:
-- Reduce batch size in `ingest.py`
-- Or split workflow into smaller sub-workflows with separate tags
-
-### Memory Cleanup
-After many conversations, the memory database grows. To clean up:
-```bash
-rm session.db
-python3 reindex_memory.py
-```
-
-### Index Rebuild
-To optimize FAISS index performance:
-```bash
-python3 ingest.py  # or ingest for specific workflow
-```
-
----
-
-## Development
-
-### Adding New Document Types
-
-Edit `ingest.py` to add support for new file types:
-
-```python
-def load_documents(workflow_filter: str = ""):
-    # ... existing code ...
-    
-    if name.lower().endswith(".docx"):
-        docs.append({"source": name, "text": read_docx(path), "tag": doc_tag})
-    
-def read_docx(path: str) -> str:
-    # Implement DOCX reading logic
-    pass
-```
-
-### Customizing Prompt Templates
-
-Edit `chatbot.py` functions:
-- `build_answer_prompt()` - Main response prompt
-- `build_summary_prompt()` - Summarization prompt
-- `build_query_router_prompt()` - Query routing logic
-
-### Extending Memory Features
-
-Edit `memory_store.py` to add new storage:
-```python
-def _init_db(self):
-    # Add new table in CREATE TABLE section
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS custom_data (
-            ...
-        )
-    """)
-```
-
----
-
-## License & Attribution
-
-This project uses:
-- **FAISS** - Facebook AI Similarity Search
-- **Gemini/OpenAI** - LLM APIs
-- **Flask** - Web framework
-- **PyPDF** - PDF text extraction
-
----
-
-## Support
-
-For issues or questions:
-1. Check the Troubleshooting section
-2. Review the API Reference
-3. Check console output for error messages
-4. Enable debug mode: `ENABLE_QUERY_ROUTING_DEBUG=true` in `.env`
-
----
-
-**Last Updated:** April 7, 2026  
-**Version:** 2.0 (Workflow Selection Feature)
+**Last updated:** July 2026
